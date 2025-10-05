@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { motion, AnimatePresence } from 'framer-motion';
 import io from 'socket.io-client';
@@ -11,12 +12,19 @@ export default function EmployeeDashboard() {
   const [toast, setToast] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
   const [showSupportDrawer, setShowSupportDrawer] = useState(false);
-  
-  const employeeId = 3; // Mock employee ID
+  const [user, setUser] = useState(null);
+  const router = useRouter();
   
   useEffect(() => {
-    fetchDashboardData();
-    setupWebSocket();
+    const userData = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
+    if (userData && token) {
+      setUser(JSON.parse(userData));
+      fetchDashboardData();
+      setupWebSocket();
+    } else {
+      router.push('/login');
+    }
     
     return () => {
       if (socket) socket.disconnect();
@@ -25,27 +33,31 @@ export default function EmployeeDashboard() {
   
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch(`http://localhost:5001/api/dashboard/employee/${employeeId}`);
+      const token = localStorage.getItem('token');
+      const userData = localStorage.getItem('user');
+      if (!token || !userData) {
+        router.push('/login');
+        return;
+      }
+      const userObj = JSON.parse(userData);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/employee/${userObj.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const result = await response.json();
       if (result.success) {
         setDashboardData(result.data);
+        localStorage.setItem('dashboardData', JSON.stringify(result.data));
+      } else if (response.status === 401) {
+        localStorage.clear();
+        router.push('/login');
       } else {
         console.error('API returned error:', result.error);
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
-      // Show fallback data to prevent blank screen
-      if (!dashboardData) {
-        setDashboardData({
-          employee: { name: 'Employee', department: 'Unknown', designation: 'Unknown' },
-          onboardingProgress: { completed: 0, total: 7, percentage: 0, nextStep: 'Loading...' },
-          leaveBalance: { casual: { used: 0, total: 12 }, sick: { used: 0, total: 10 }, earned: { used: 0, total: 15 } },
-          notifications: [],
-          tasks: [],
-          goals: [],
-          buddy: null,
-          unreadNotifications: 0
-        });
+      const cachedData = localStorage.getItem('dashboardData');
+      if (cachedData) {
+        setDashboardData(JSON.parse(cachedData));
       }
     } finally {
       setLoading(false);
@@ -53,22 +65,26 @@ export default function EmployeeDashboard() {
   };
   
   const setupWebSocket = () => {
+    const userData = localStorage.getItem('user');
+    if (!userData) return;
+    const userObj = JSON.parse(userData);
+    
     const newSocket = io('http://localhost:5001');
     setSocket(newSocket);
     
-    newSocket.emit('join_employee_room', employeeId);
+    newSocket.emit('join_employee_room', userObj.id);
     
-    newSocket.on(`notification_${employeeId}`, (notification) => {
+    newSocket.on(`notification_${userObj.id}`, (notification) => {
       showToast(notification.title, notification.message, 'info');
-      setTimeout(() => fetchDashboardData(), 500); // Slight delay for better UX
+      setTimeout(() => fetchDashboardData(), 500);
     });
     
-    newSocket.on(`task_${employeeId}`, (task) => {
+    newSocket.on(`task_${userObj.id}`, (task) => {
       showToast('New Task', task.title, 'info');
       setTimeout(() => fetchDashboardData(), 500);
     });
     
-    newSocket.on(`dashboard_update_${employeeId}`, (update) => {
+    newSocket.on(`dashboard_update_${userObj.id}`, (update) => {
       setTimeout(() => fetchDashboardData(), 500);
     });
   };
@@ -76,6 +92,11 @@ export default function EmployeeDashboard() {
   const showToast = (title, message, type = 'info') => {
     setToast({ title, message, type });
     setTimeout(() => setToast(null), 5000);
+  };
+  
+  const handleLogout = () => {
+    localStorage.clear();
+    router.push('/login');
   };
   
   const markNotificationAsRead = async (notificationId) => {
@@ -270,7 +291,7 @@ export default function EmployeeDashboard() {
         }}>
           <div>
             <h1 style={{ color: darkMode ? '#f1f5f9' : '#1e293b', margin: '0 0 5px 0', fontSize: '24px', fontWeight: '600' }}>
-              Welcome back, {employee.name}! 👋
+              Welcome back, {user?.name || employee?.name}! 👋
             </h1>
             <p style={{ color: darkMode ? '#94a3b8' : '#64748b', margin: 0, fontSize: '14px' }}>
               {employee.designation} • {employee.department} • TechStart Solutions
@@ -278,20 +299,37 @@ export default function EmployeeDashboard() {
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            {/* Dark Mode Toggle */}
+            <span style={{ color: darkMode ? '#d1d5db' : '#6b7280', fontSize: '14px' }}>
+              {user?.name || 'User'}
+            </span>
             <button
               onClick={() => setDarkMode(!darkMode)}
               style={{
-                background: 'none',
+                background: darkMode ? '#374151' : '#f3f4f6',
                 border: 'none',
-                fontSize: '20px',
+                fontSize: '16px',
                 cursor: 'pointer',
-                padding: '8px',
+                padding: '8px 12px',
                 borderRadius: '8px',
-                background: darkMode ? '#374151' : '#f3f4f6'
+                color: darkMode ? '#f9fafb' : '#374151'
               }}
             >
               {darkMode ? '☀️' : '🌙'}
+            </button>
+            <button
+              onClick={handleLogout}
+              style={{
+                background: '#dc2626',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}
+            >
+              Logout
             </button>
             
             {/* Notification Bell */}
