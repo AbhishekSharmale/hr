@@ -1,0 +1,23 @@
+{
+  "name": "hr-saas-platform",
+  "version": "1.0.0",
+  "description": "HR SaaS Platform for Indian SMBs",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "build": "npm run build:frontend",
+    "build:frontend": "cd frontend && npm run build",
+    "deploy": "wrangler publish",
+    "deploy:frontend": "cd frontend && npm run build && npm run export"
+  },
+  "dependencies": {
+    "concurrently": "^7.6.0"
+  },
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  },
+  "keywords": ["hr", "saas", "cloudflare", "workers"],
+  "author": "HR SaaS Team",
+  "license": "MIT"
+}
