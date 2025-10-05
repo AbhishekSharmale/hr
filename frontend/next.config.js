@@ -10,7 +10,7 @@ const nextConfig = {
       {
         source: '/api/:path*',
         destination: process.env.NODE_ENV === 'production' 
-          ? 'https://hr-saas-platform.your-subdomain.workers.dev/api/:path*'
+          ? 'https://hr-saas-platform.work-abhisheksharmale.workers.dev/api/:path*'
           : 'http://localhost:5001/api/:path*'
       }
     ];
