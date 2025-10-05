@@ -102,7 +102,7 @@ export default function HROnboarding() {
       pendingReviews: 0,
       overdueTasks: 0
     }
-  ]);
+  ];
 
   const activeEmployees = onboardingEmployees.filter(emp => emp.status !== 'Complete');
   const completedEmployees = onboardingEmployees.filter(emp => emp.status === 'Complete');
